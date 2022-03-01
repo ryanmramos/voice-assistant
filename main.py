@@ -18,6 +18,9 @@ from gtts import gTTS
 
 # If modifying these scopes, delete the file token.json.
 SCOPES = ['https://www.googleapis.com/auth/calendar.readonly']
+MONTHS = ["january", "february", "march", "april", "may", "june","july", "august", "september","october", "november", "december"]
+DAYS = ["monday", "tuesday", "wednesday", "thursday", "friday", "saturday", "sunday"]
+DAY_EXTENTIONS = ["rd", "th", "st", "nd"]
 
 def speak(text):
     tts = gTTS(text=text, lang="en")
@@ -101,5 +104,56 @@ def get_events(n, service):
             start = event['start'].get('dateTime', event['start'].get('date'))
             print(start, event['summary'])
 
-service = authenticate_google()
-get_events(2, service)
+def get_date(text):
+    text = text.lower()
+    today = datetime.date.today()
+
+    if text.count("today") > 0:
+        return today
+
+    day = -1
+    day_of_week = -1
+    month = -1
+    year = today.year
+
+    for word in text.split():
+        if word in MONTHS:
+            month = MONTHS.index(word) + 1
+        elif word in DAYS:
+            day_of_week = DAYS.index(word)
+        elif word.isdigit():
+            day = int(word)
+        else:
+            for ext in DAY_EXTENTIONS:
+                found = word.find(ext)
+                if found > 0:
+                    try:
+                        day = int(word[:found])
+                    except:
+                        pass
+    
+    if month < today.month and month != -1:
+        year = year + 1
+    
+    if day < today.day and month == -1 and day != -1:
+        month = month + 1
+    
+    if month == -1 and day == -1 and day_of_week != -1:
+        current_day_of_week = today.weekday() # 0 - 6
+        diff = day_of_week - current_day_of_week
+
+        if diff < 0:
+            diff += 7
+            if text.count("next") >= 1:
+                diff += 7
+    
+        return today + datetime.timedelta(diff)
+    
+    return datetime.date(month = month, day = day, year = year)
+
+# service = authenticate_google()
+# get_events(2, service)
+
+# text = get_audio()
+text = "do i have anything on april 25th"
+print(get_date(text)) # prints 2022-04-25

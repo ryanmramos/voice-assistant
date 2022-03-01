@@ -11,9 +11,9 @@ from googleapiclient.errors import HttpError
 import os
 import time
 import gtts
-import playsound
+import pyttsx3
 import speech_recognition as sr
-from gtts import gTTS
+import pytz
 
 
 # If modifying these scopes, delete the file token.json.
@@ -23,10 +23,10 @@ DAYS = ["monday", "tuesday", "wednesday", "thursday", "friday", "saturday", "sun
 DAY_EXTENTIONS = ["rd", "th", "st", "nd"]
 
 def speak(text):
-    tts = gTTS(text=text, lang="en")
-    filename = "voice.mp3"
-    tts.save(filename)
-    playsound.playsound(filename)
+    engine = pyttsx3.init()
+    engine.say(text)
+    engine.runAndWait()
+
 
 def get_audio():
     r = sr.Recognizer()
@@ -57,9 +57,6 @@ def get_audio():
 
 
 def authenticate_google():
-    """Shows basic usage of the Google Calendar API.
-    Prints the start and name of the next 10 events on the user's calendar.
-    """
     creds = None
     # The file token.json stores the user's access and refresh tokens, and is
     # created automatically when the authorization flow completes for the first
@@ -86,23 +83,28 @@ def authenticate_google():
     except HttpError as error:
         print('An error occurred: %s' % error)
 
-def get_events(n, service):
+def get_events(day, service):
     # Call the Calendar API
-        now = datetime.datetime.utcnow().isoformat() + 'Z'  # 'Z' indicates UTC time
-        print(f'Getting the upcoming {n} events')
-        events_result = service.events().list(calendarId='primary', timeMin=now,
-                                              maxResults=10, singleEvents=True,
-                                              orderBy='startTime').execute()
-        events = events_result.get('items', [])
 
-        if not events:
-            print('No upcoming events found.')
-            return
+    date = datetime.datetime.combine(day, datetime.datetime.min.time())
+    end_date = datetime.datetime.combine(day, datetime.datetime.max.time())
+    utc = pytz.UTC
+    date = date.astimezone(utc)
+    end_date = end_date.astimezone(utc)
 
-        # Prints the start and name of the next 10 events
-        for event in events:
-            start = event['start'].get('dateTime', event['start'].get('date'))
-            print(start, event['summary'])
+    events_result = service.events().list(calendarId='primary', timeMin=date.isoformat(),
+                                            timeMax=end_date.isoformat(), singleEvents=True,
+                                            orderBy='startTime').execute()
+    events = events_result.get('items', [])
+
+    if not events:
+        print('No upcoming events found.')
+        return
+
+    # Prints the start and name of the next 10 events
+    for event in events:
+        start = event['start'].get('dateTime', event['start'].get('date'))
+        print(start, event['summary'])
 
 def get_date(text):
     text = text.lower()
@@ -148,12 +150,16 @@ def get_date(text):
                 diff += 7
     
         return today + datetime.timedelta(diff)
-    
+    if month == -1 or day == -1:
+        return None
     return datetime.date(month = month, day = day, year = year)
 
 # service = authenticate_google()
 # get_events(2, service)
 
 # text = get_audio()
-text = "do i have anything on april 25th"
-print(get_date(text)) # prints 2022-04-25
+
+SERVICE = authenticate_google()
+text = "what do I have on wednesday"
+print(get_date(text))
+get_events(get_date(text), SERVICE)
